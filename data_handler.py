@@ -1,12 +1,11 @@
 import os
 import pandas as pd
-import numpy as np
 import yfinance as yf
 
 
-def fetch_data(ticker, start_date, end_date):
-    data = yf.download(ticker, start=start_date, end=end_date)
-    return data['Adj Close']
+def fetch_data(ticker):
+    data = yf.download(ticker)
+    return data
 
 
 def save_data_to_file(df, ticker):
@@ -24,9 +23,12 @@ def load_data_from_file(ticker):
         return None
 
 
-def get_data(ticker, start_date, end_date):
+def get_adj_close(ticker, start_date, end_date):
     df_data = load_data_from_file(ticker)
     if df_data is None:
-        df_data = fetch_data(ticker, start_date, end_date)
+        df_data = fetch_data(ticker)
         save_data_to_file(df_data, ticker)
-    return df_data
+    else:
+        df_data = df_data.loc[start_date:end_date]
+
+    return df_data['Adj Close'].to_frame(ticker)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-
+import data_handler as dh
 
 class Asset:
     def __init__(self, name, a_prices):
@@ -17,23 +17,57 @@ class Asset:
 
 
 class Portfolio:
-    def __init__(self, assets, a_initial_weights, a_initial_amounts):
+    def __init__(self, assets, a_initial_weights, a_initial_amounts, global_start_date, global_end_date):
         self.assets = assets
         self.a_initial_weights = a_initial_weights
         self.a_initial_amounts = a_initial_amounts
+        self.global_start_date = global_start_date
+        self.global_end_date = global_end_date
         self.df_weights = pd.DataFrame(columns=[asset.name for asset in assets])
         self.df_amounts = pd.DataFrame(columns=[asset.name for asset in assets])
         self.df_rebalancing = pd.DataFrame(columns=["Date", "New Weights"])
         self.df_trade_history = pd.DataFrame(columns=["Asset", "Purchase Price", "Quantity", "Time Index"])
         self.total_pnl = {"Trading Profit": 0, "Tax Payable": 0, "Trading Cost": 0}
 
+    def get_all_asset_prices_old(self):
+        return np.array([asset.get_prices() for asset in self.assets]).T
+
+    def get_all_asset_prices(self):
+        a_prices = np.array([asset.get_prices() for asset in self.assets]).T
+        a_prices_expanded = np.expand_dims(a_prices, axis=1)
+        return a_prices_expanded
+
     def calculate_portfolio_value(self, a_prices):
         return np.sum(a_prices * self.a_initial_amounts)
 
-    def calculate_portfolio_returns(self, a_prices):
+    def calculate_portfolio_returns3(self, a_prices):
         a_returns = np.diff(a_prices, axis=0) / a_prices[:-1]
         a_weighted_returns = self.a_initial_weights * a_returns
         a_portfolio_returns = np.sum(a_weighted_returns, axis=1)
+        return a_portfolio_returns
+
+    def calculate_portfolio_returns4(self, a_prices):
+        a_returns = np.diff(a_prices, axis=0) / a_prices[:-1]
+        a_weighted_returns = a_returns * self.a_initial_weights[:, np.newaxis]
+        a_portfolio_returns = np.sum(a_weighted_returns, axis=0)
+        return a_portfolio_returns
+
+    def calculate_portfolio_returns(self, a_prices):
+        a_returns = np.diff(a_prices, axis=0) / a_prices[:-1]
+        a_weighted_returns = self.a_initial_weights[np.newaxis, :, np.newaxis] * a_returns
+        a_portfolio_returns = np.sum(a_weighted_returns, axis=1)
+        return a_portfolio_returns
+    def calculate_portfolio_returns2(self, a_prices):
+        a_returns = np.diff(a_prices, axis=0) / a_prices[:-1]
+
+        if a_prices.ndim == 1:
+            a_weighted_returns = a_returns * self.a_initial_weights[:, np.newaxis]
+        elif a_prices.ndim == 2:
+            a_weighted_returns = self.a_initial_weights * a_returns
+        else:
+            raise ValueError("a_prices should have either 1 or 2 dimensions.")
+
+        a_portfolio_returns = np.sum(a_weighted_returns, axis=0)
         return a_portfolio_returns
 
     def rebalance(self, date, a_new_weights):
@@ -58,6 +92,9 @@ class Portfolio:
     def calculate_tax_payable(self, trade):
         # Implement tax payable calculation
         pass
+
+
+
 
 
 class TaxMinimizationStrategy:
@@ -106,3 +143,19 @@ class Simulation:
         a_asset_prices = a_asset_prices * np.array(self.a_initial_prices)[:, np.newaxis, np.newaxis]
 
         return a_asset_prices
+
+
+def create_portfolio(tickers, start_date, end_date, initial_weights, initial_amount):
+    dfs = [dh.get_adj_close(ticker, start_date, end_date) for ticker in tickers]
+    df_prices = pd.concat(dfs, axis=1).dropna()
+
+    # Ensure the DataFrame has the tickers as column names
+    df_prices.columns = tickers
+
+    global_start_date = df_prices.index.min()
+    global_end_date = df_prices.index.max()
+
+    assets = [Asset(ticker, df_prices[ticker].values) for ticker in tickers]
+    portfolio = Portfolio(assets, initial_weights, initial_amount, global_start_date, global_end_date)
+
+    return portfolio
