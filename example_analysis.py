@@ -39,6 +39,23 @@ def historical_example():
     print("Portfolio Returns:", portfolio.calculate_portfolio_returns(a_prices))
 
 
+def historical_example2():
+    tickers = ['IEI', 'VOO']
+    start_date = '2001-01-01'
+    end_date = '2021-09-01'
+
+    initial_weights = np.array([0.5, 0.5])
+    initial_amount = np.array([1000, 1000])
+
+    portfolio = m.create_portfolio(tickers, start_date, end_date, initial_weights, initial_amount)
+
+    print("Global Start Date:", portfolio.global_start_date)
+    print("Global End Date:", portfolio.global_end_date)
+
+    a_avg_asset_prices = np.mean(portfolio.get_all_asset_prices(), axis=2)
+    print("Portfolio Returns:", portfolio.calculate_portfolio_returns(a_avg_asset_prices))
+
+
 def simulated_example():
     tickers = ['Asset1', 'Asset2']
     days = 252  # One year of daily data
@@ -60,12 +77,12 @@ def simulated_example():
     a_asset_prices = sim.generate_asset_prices()
 
     # Calculate average asset prices across simulations
-    a_avg_asset_prices = np.mean(a_asset_prices, axis=1)
+    # a_avg_asset_prices = np.mean(a_asset_prices, axis=1)
 
     # Create Asset objects
     assets = []
     for i, ticker in enumerate(tickers):
-        assets.append(m.Asset(ticker, a_avg_asset_prices[i]))
+        assets.append(m.Asset(ticker, a_asset_prices[i, :, :]))
 
     # Dummy global start and end dates
     global_start_date = '2000-01-01'
@@ -77,10 +94,10 @@ def simulated_example():
     # Results
     print("Initial Weights:", initial_weights)
     print("Initial Amount:", initial_amount)
-    print("Portfolio Value:", portfolio.calculate_portfolio_value(a_avg_asset_prices))
-    print("Portfolio Returns:", portfolio.calculate_portfolio_returns(a_avg_asset_prices))
+    print("Portfolio Value:", portfolio.calculate_portfolio_value(a_asset_prices))
+    print("Portfolio Returns:", portfolio.calculate_portfolio_returns(a_asset_prices))
 
 
 if __name__ == '__main__':
-    historical_example() #2765, 2
-    # simulated_example()
+    # historical_example() #2765, 2
+    simulated_example()
