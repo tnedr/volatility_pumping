@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-import portfolio_simulation as m
+import portfolio_simulation as psim
 import data_handler as dm
-
+from visualization import plot_subplot
 
 def historical_example():
 
@@ -11,24 +11,32 @@ def historical_example():
     end_date = '2021-09-01'
 
     initial_weights = np.array([0.6, 0.4])
-    initial_amount = 100000
+    initial_investment = 100000
 
-    a_initial_amounts = initial_amount * initial_weights
+    a_initial_amounts = initial_investment * initial_weights
 
-    # Create Portfolio
-    portfolio = m.create_portfolio_from_historical_prices(tickers, start_date, end_date, initial_weights, initial_amount)
+    portfolio = psim.create_portfolio_from_historical_prices(
+        tickers, start_date, end_date, initial_weights,
+        initial_investment)
 
-    # Get prices for the global date range
-    a_prices = portfolio.get_all_asset_prices()
+    assets = portfolio.assets
 
-    # Calculate returns
-    a_returns = np.diff(np.log(a_prices), axis=1)
+    mu = portfolio.calculate_asset_mu()
+    sigma = portfolio.calculate_asset_sigma()
+    correlation_matrix = portfolio.calculate_correlation_matrix()
+    initial_prices = np.array([asset.get_prices()[0] for asset in assets])
 
-    # Calculate statistics
+    days = 252
+    num_simulations = 1000
 
+    simulation = psim.Simulation(days, num_simulations, mu, sigma, correlation_matrix, initial_prices)
+    asset_prices = simulation.generate_asset_prices()
+
+    # Plot summary charts
+    plot_subplot(portfolio, portfolio.time_info)
     # Results
     print("Initial Weights:", initial_weights)
-    print("Initial Amount:", initial_amount)
+    print("Initial Investment:", initial_investment)
     print("Global Start Date:", portfolio.global_start_date)
     print("Global End Date:", portfolio.global_end_date)
     print("Asset Mu:", portfolio.calculate_asset_mu())
@@ -36,6 +44,10 @@ def historical_example():
     print("Correlation Matrix:", portfolio.calculate_correlation_matrix())
     print("Portfolio Value:", portfolio.calculate_portfolio_value(a_prices, a_initial_amounts))
     print("Portfolio Returns:", portfolio.calculate_portfolio_returns(a_prices))
+
+    # Plot summary charts
+
+    plot_summary(assets, portfolio, simulation)
 
 
 def simulated_example():
