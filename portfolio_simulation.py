@@ -6,9 +6,13 @@ import data_handler as dh
 
 class Asset:
 
-    def __init__(self, name, a_prices):
+    def __init__(self, name, a_prices, time_dim=None):
         self.name = name
         self.a_prices = a_prices
+        if time_dim is None:
+            self.time_dim = range(self.a_prices.shape[1])
+        else:
+            self.time_dim = time_dim
 
     def calculate_returns(self):
         self.a_returns = np.diff(self.a_prices, axis=0) / self.a_prices[:-1, :]
@@ -17,109 +21,62 @@ class Asset:
     def get_prices(self):
         return self.a_prices
 
+    def get_time_dim(self):
+        return self.time_dim
+
 
 class Portfolio:
 
-    def __init__(self, assets, a_initial_weights, initial_investment, global_start_date, global_end_date, time_info):
+    def __init__(self, assets, a_initial_weights, initial_investment):
         self.assets = assets
         self.a_initial_weights = a_initial_weights
         self.initial_investment = initial_investment
-        self.global_start_date = global_start_date
-        self.global_end_date = global_end_date
-        self.time_info = time_info
+
+        self.num_assets = len(self.assets)
+        self.step_dim = self.get_step_dim()
+        self.num_steps = len(self.step_dim)
+        self.num_paths = self.assets[0].get_prices().shape[1]
+
+        self.global_start_date = self.step_dim[0]
+        self.global_end_date = self.step_dim[-1]
+
         self.df_weights = pd.DataFrame(columns=[asset.name for asset in assets])
-        self.a_initial_quantities = self.calculate_initial_quantities(initial_investment)
-        self.a_quantities = self.initialize_quantities(initial_investment)
-        self.df_rebalancing = pd.DataFrame(columns=["Date", "New Weights"])
-        self.df_trade_history = pd.DataFrame(columns=["Asset", "Purchase Price", "Quantity", "Time Index"])
-        self.total_pnl = {"Trading Profit": 0, "Tax Payable": 0, "Trading Cost": 0}
 
-        self.store_initial_quantities()
+        a_initial_quantities = self.calculate_initial_quantities(initial_investment)
+        self.a_quantities = self.initialize_quantities(a_initial_quantities)
+        self.compute_and_store_weights()
 
-
-    def initialize_quantities(self, initial_investment):
-        a_initial_prices = np.array([asset.get_prices()[0] for asset in self.assets])
-        a_initial_quantities = (initial_investment * self.a_initial_weights) / a_initial_prices
-
-        num_assets = len(self.assets)
-        num_steps = len(self.time_info)
-        num_paths = self.a_initial_quantities.shape[1]
-
-        a_quantities = np.zeros((num_assets, num_steps, num_paths))
-        a_quantities[:, 0, :] = a_initial_quantities
-
-        return a_quantities
-
-    def compute_and_store_weights(self):
-        a_total_investments = np.sum(self.initial_investment)
-        self.a_initial_weights = self.initial_investment / a_total_investments
-        self.df_weights = pd.DataFrame(data=self.a_initial_weights.reshape(1, -1),
-            columns=[asset.name for asset in self.assets])
+    def get_step_dim(self):
+        return self.assets[0].get_time_dim()
 
     def calculate_initial_quantities(self, initial_investment):
         a_initial_prices = np.array([asset.get_prices()[0] for asset in self.assets])
-        a_initial_quantities = (initial_investment * self.a_initial_weights) / a_initial_prices
+        # a_initial_quantities = (initial_investment * self.a_initial_weights) / a_initial_prices
+        a_initial_quantities = (initial_investment * self.a_initial_weights[:, np.newaxis]) / a_initial_prices
         return a_initial_quantities
 
-    def store_initial_quantities(self):
-        # self.a_quantities = np.concatenate((self.a_quantities, self.a_initial_quantities[:, np.newaxis, :]), axis=1)
-        self.a_quantities = np.concatenate((self.a_quantities, self.a_initial_quantities[:, :, np.newaxis]), axis=1)
+    def initialize_quantities(self, a_initial_quantities):
+        a_quantities = np.zeros((self.num_assets, self.num_steps, self.num_paths))
+        a_quantities[:, 0, :] = a_initial_quantities
+        return a_quantities
 
+    def compute_and_store_weights(self):
+        self.df_weights = pd.DataFrame(data=self.a_initial_weights.reshape(1, -1),
+                                       columns=[asset.name for asset in self.assets])
 
+    def update_quantities(self):
+        # Use this method to update quantities when rebalancing or at each step
+        # For now, it assumes no rebalancing and sets the quantities equal to the previous step
+        for step in range(1, self.num_steps):
+            self.a_quantities[:, step, :] = self.a_quantities[:, step - 1, :]
 
-    def get_all_asset_prices_old(self):
-        return np.array([asset.get_prices() for asset in self.assets]).T
+    def calculate_portfolio_value(self, a_prices, a_quantities):
+        return np.sum(a_prices * a_quantities, axis=0)
 
     def get_all_asset_prices(self):
         a_prices = np.array([asset.get_prices() for asset in self.assets])
         return a_prices
 
-    def calculate_portfolio_value(self, a_prices, a_quantities):
-        return np.sum(a_prices * a_quantities[:, np.newaxis], axis=0)
-
-    # def compute_and_store_weights(self):
-    #     a_total_investments = np.sum(self.a_initial_investments)
-    #     self.a_initial_weights = self.a_initial_investments / a_total_investments
-    #     self.df_weights = pd.DataFrame(self.a_initial_weights, columns=[asset.name for asset in self.assets])
-
-    def compute_and_store_weights(self):
-        a_total_investments = np.sum(self.a_initial_investments)
-        self.a_initial_weights = self.a_initial_investments / a_total_investments
-        self.df_weights = pd.DataFrame(data=self.a_initial_weights.reshape(1, -1),
-                                       columns=[asset.name for asset in self.assets])
-
-    def calculate_portfolio_returns(self, a_prices):
-        a_returns = np.diff(a_prices, axis=1) / a_prices[:, :-1, :]
-        a_weighted_returns = self.a_initial_weights[:, np.newaxis, np.newaxis] * a_returns
-        a_portfolio_returns = np.sum(a_weighted_returns, axis=0)
-        return a_portfolio_returns
-
-    def calculate_asset_mu(self):
-        asset_returns_list = [asset.calculate_returns() for asset in self.assets]
-        a_asset_returns = np.array(asset_returns_list)
-        a_mu = np.mean(a_asset_returns, axis=1) * 252
-        return a_mu
-
-    def calculate_asset_sigma(self):
-        asset_returns_list = [asset.calculate_returns() for asset in self.assets]
-        a_asset_returns = np.array(asset_returns_list)
-        a_sigma = np.std(a_asset_returns, axis=1) * np.sqrt(252)
-        return a_sigma
-
-    def calculate_correlation_matrix(self):
-        asset_returns_list = [asset.calculate_returns() for asset in self.assets]
-        a_asset_returns = np.array(asset_returns_list)
-        num_paths = a_asset_returns.shape[2]
-        correlation_matrices = []
-        for i in range(num_paths):
-            corr_matrix = np.corrcoef(a_asset_returns[:, :, i])
-            correlation_matrices.append(corr_matrix)
-
-        a_correlation_matrix = np.array(correlation_matrices)
-        a_correlation_matrix = a_correlation_matrix.swapaxes(0, 2)
-        return a_correlation_matrix
-
-    # Add any additional functions you need for the portfolio simulation
 
 
 class Simulation:
@@ -153,6 +110,29 @@ class Simulation:
         return a_prices
 
 
+# def create_portfolio_from_historical_prices(tickers, start_date, end_date, a_initial_weights, initial_investment):
+#     # Iterate over tickers and get adjusted close prices
+#     l_prices_df = [dh.get_adj_close(ticker, start_date, end_date) for ticker in tickers]
+#
+#     merged_df = pd.concat(l_prices_df, axis=1, keys=tickers)
+#
+#     # Drop the rows with missing values
+#     merged_df.dropna(inplace=True)
+#
+#     # Convert the merged dataframe to a 3D numpy array
+#     a_prices = merged_df.values.reshape(len(tickers), -1, 1)
+#
+#     # Create Asset objects
+#     assets = [Asset(ticker, a_prices[i, :, :]) for i, ticker in enumerate(tickers)]
+#
+#     time_info = merged_df.index
+#
+#     # Create Portfolio object
+#     portfolio = Portfolio(assets, a_initial_weights, initial_investment, start_date, end_date, time_info)
+#
+#     return portfolio
+
+
 def create_portfolio_from_historical_prices(tickers, start_date, end_date, a_initial_weights, initial_investment):
     # Iterate over tickers and get adjusted close prices
     l_prices_df = [dh.get_adj_close(ticker, start_date, end_date) for ticker in tickers]
@@ -166,12 +146,11 @@ def create_portfolio_from_historical_prices(tickers, start_date, end_date, a_ini
     a_prices = merged_df.values.reshape(len(tickers), -1, 1)
 
     # Create Asset objects
-    assets = [Asset(ticker, a_prices[i, :, :]) for i, ticker in enumerate(tickers)]
+    assets = [Asset(ticker, a_prices[i, :, :], time_dim=merged_df.index) for i, ticker in enumerate(tickers)]
 
-    time_info = merged_df.index
+    # step_dim = merged_df.index
 
     # Create Portfolio object
-    portfolio = Portfolio(assets, a_initial_weights, initial_investment, start_date, end_date, time_info)
+    portfolio = Portfolio(assets, a_initial_weights, initial_investment)
 
     return portfolio
-
