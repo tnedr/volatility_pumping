@@ -6,7 +6,7 @@ import data_handler as dm
 
 def historical_example():
 
-    tickers = ['IEI', 'VOO']
+    tickers = ['IEI', 'GSG']
     start_date = '2001-01-01'
     end_date = '2021-09-01'
 

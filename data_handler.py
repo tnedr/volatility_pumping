@@ -29,6 +29,7 @@ def get_adj_close(ticker, start_date, end_date):
         df_data = fetch_data(ticker)
         save_data_to_file(df_data, ticker)
     else:
-        df_data = df_data.loc[start_date:end_date]
+        df_data = df_data.loc[(df_data.index >= start_date) & (df_data.index <= end_date)]
 
     return df_data['Adj Close'].to_frame(ticker)
+
