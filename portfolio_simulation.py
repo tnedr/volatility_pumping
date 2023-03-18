@@ -2,6 +2,38 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 import data_handler as dh
+from enum import Enum
+
+class RebalancingStrategy(Enum):
+    FIXED_QUANTITIES = 0
+    FIXED_WEIGHTS = 1
+
+class RebalancingStrategy(Enum):
+    FIXED_QUANTITIES = 0
+    FIXED_WEIGHTS = 1
+
+
+class FixedWeightsStrategy:
+    def __init__(self, frequency):
+        self.frequency = frequency
+        self.steps_since_rebalance = 0
+
+    def should_rebalance(self):
+        self.steps_since_rebalance += 1
+        return self.steps_since_rebalance == self.frequency
+
+    def rebalance(self, portfolio):
+        if self.should_rebalance():
+            # Calculate new weights based on fixed weights strategy
+            new_weights = portfolio.a_initial_weights
+            # Calculate new quantities based on new weights
+            new_quantities = (new_weights[:, np.newaxis] * portfolio.a_quantities[:, -1, :]) / portfolio.get_all_asset_prices()[:, -1, :]
+            # Add new quantities to the quantities array
+            portfolio.a_quantities = np.concatenate((portfolio.a_quantities, new_quantities[:, np.newaxis, :]), axis=1)
+            # Update weights dataframe
+            portfolio.compute_and_store_weights()
+            # Reset steps since rebalance counter
+            self.steps_since_rebalance = 0
 
 
 class Asset:
