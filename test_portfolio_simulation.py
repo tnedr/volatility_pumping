@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import pandas as pd
-from portfolio_simulation import Asset, Portfolio, create_portfolio_from_historical_prices
+from portfolio_simulation import Asset, Portfolio, FixedQuantitiesStrategy, create_portfolio_from_historical_prices
 
 
 class TestAsset(unittest.TestCase):
@@ -75,26 +75,54 @@ class TestPortfolio(unittest.TestCase):
         self.assertTrue(np.array_equal(portfolio.a_initial_weights, a_initial_weights))
         self.assertEqual(portfolio.initial_investment, initial_investment)
 
-    def test_portfolio_value_calculation(self):
-        tickers = ["AAPL", "MSFT"]
-        start_date = "2020-01-01"
-        end_date = "2020-12-31"
-        a_initial_weights = np.array([0.6, 0.4])
+
+class TestFixedQuantitiesStrategy(unittest.TestCase):
+    def test_fixed_quantities(self):
+        # Create example data for testing
+        tickers = ['AAPL', 'GOOGL']
+        start_date = '2021-01-01'
+        end_date = '2021-12-31'
+        a_initial_weights = np.array([0.5, 0.5])
         initial_investment = 10000
 
+        # Create a portfolio
         portfolio = create_portfolio_from_historical_prices(tickers, start_date, end_date, a_initial_weights, initial_investment)
 
-        a_prices = portfolio.get_all_asset_prices()
-        a_quantities = portfolio.a_quantities
-        a_portfolio_values = portfolio.calculate_portfolio_value(a_prices, a_quantities)
+        # Choose a rebalancing strategy
+        strategy = FixedQuantitiesStrategy(frequency=5)
 
-        self.assertEqual(a_portfolio_values.shape, (a_prices.shape[1], a_prices.shape[2]))
+        # Iterate through each step and check if the quantities remain the same after rebalancing
+        for step in range(1, portfolio.num_steps):
+            prev_quantities = portfolio.a_quantities[:, step-1, :].copy()
+            portfolio.rebalance(strategy, step)
+            np.testing.assert_array_equal(prev_quantities, portfolio.a_quantities[:, step, :], 'Quantities changed after rebalancing')
 
-        # Check if the initial portfolio value is equal to the initial investment
-        initial_portfolio_value = a_portfolio_values[0, 0]
-        self.assertAlmostEqual(initial_portfolio_value, initial_investment, delta=1e-6)
 
+class TestFixedWeightsStrategy(unittest.TestCase):
+    def test_fixed_weights(self):
+        # Create example data for testing
+        tickers = ['AAPL', 'GOOGL']
+        start_date = '2021-01-01'
+        end_date = '2021-12-31'
+        a_initial_weights = np.array([0.5, 0.5])
+        initial_investment = 10000
 
+        # Create a portfolio
+        portfolio = create_portfolio_from_historical_prices(tickers, start_date, end_date, a_initial_weights, initial_investment)
+
+        # Choose a rebalancing strategy
+        strategy = FixedWeightsStrategy(frequency=5)
+
+        # Iterate through each step and check if the weights are maintained after rebalancing
+        for step in range(1, portfolio.num_steps):
+            prev_weights = portfolio.a_weights[:, step - 1, :].copy()
+            portfolio.rebalance(strategy, step)
+            current_weights = portfolio.a_weights[:, step, :]
+
+            if strategy.should_rebalance():
+                np.testing.assert_array_almost_equal(prev_weights, a_initial_weights[:, np.newaxis], decimal=4, err_msg='Weights did not match after rebalancing')
+            else:
+                np.testing.assert_array_almost_equal(prev_weights, current_weights, decimal=4, err_msg='Weights changed without rebalancing')
 
 if __name__ == "__main__":
     unittest.main()

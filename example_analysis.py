@@ -37,8 +37,8 @@ def historical_example():
     # Results
     print("Initial Weights:", initial_weights)
     print("Initial Investment:", initial_investment)
-    print("Global Start Date:", portfolio.global_start_date)
-    print("Global End Date:", portfolio.global_end_date)
+    print("Global Start Date:", portfolio.step_from)
+    print("Global End Date:", portfolio.step_to)
     print("Asset Mu:", portfolio.calculate_asset_mu())
     print("Asset Sigma:", portfolio.calculate_asset_sigma())
     print("Correlation Matrix:", portfolio.calculate_correlation_matrix())
