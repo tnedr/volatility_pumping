@@ -4,17 +4,6 @@ import pandas as pd
 from portfolio_simulation import Asset, Portfolio, create_portfolio_from_historical_prices
 
 
-import unittest
-import numpy as np
-import pandas as pd
-from portfolio_simulation import Asset, Portfolio, create_portfolio_from_historical_prices
-
-import unittest
-import numpy as np
-import pandas as pd
-from portfolio_simulation import Asset, Portfolio, create_portfolio_from_historical_prices
-
-
 class TestAsset(unittest.TestCase):
 
     def setUp(self):
